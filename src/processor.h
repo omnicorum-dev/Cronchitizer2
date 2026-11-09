@@ -1,0 +1,183 @@
+#pragma once
+
+#include "juce/parameter_layout.h"
+#include "juce/sample_tap.h"
+#include "juce_audio_basics/juce_audio_basics.h"
+#include <juce_audio_processors/juce_audio_processors.h>
+
+using namespace omni;
+
+class Processor final : public juce::AudioProcessor {
+  public:
+    /* ======================================================== */
+
+    // Constructor and destructor
+    Processor();
+    ~Processor() override;
+
+    /* ======================================================== */
+
+    const juce::String getName() const override { return JucePlugin_Name; }
+    // juce::StringArray getAlternateDisplayNames() const override;
+
+    void prepareToPlay(double sample_rate, int expected_block_size) override;
+
+    void releaseResources() override;
+
+    void processBlock(juce::AudioBuffer<float> &buffer,
+                      juce::MidiBuffer         &messages) override;
+
+    double getTailLengthSeconds() const override { return 0; }
+
+    bool hasEditor() const override { return true; }
+
+    void getStateInformation(juce::MemoryBlock &dest_data) override;
+    void setStateInformation(const void *data, int size_bytes) override;
+
+    /* ======================================================== */
+
+    bool acceptsMidi() const override {
+#if (JucePlugin_IsMidiEffect || JucePlugin_IsSynth)
+        return true;
+#else
+        return false;
+#endif
+    }
+
+    bool producesMidi() const override {
+#if JucePlugin_IsMidiEffect
+        return true;
+#else
+        return false;
+#endif
+    }
+
+    bool isBusesLayoutSupported(const BusesLayout &layouts) const override {
+        if (layouts.getMainOutputChannelSet() !=
+                juce::AudioChannelSet::stereo() &&
+            layouts.getMainOutputChannelSet() !=
+                juce::AudioChannelSet::mono()) {
+            return false;
+        }
+#if !JucePlugin_IsSynth
+        if (layouts.getMainOutputChannelSet() !=
+            layouts.getMainInputChannelSet())
+            return false;
+
+        const auto sc = layouts.getChannelSet(true, 1);
+        if (!sc.isDisabled() && sc != juce::AudioChannelSet::stereo() &&
+            sc != juce::AudioChannelSet::mono())
+            return false;
+#endif
+        return true;
+    }
+
+    /* ======================================================== */
+
+    int                getNumPrograms() override { return 1; }
+    int                getCurrentProgram() override { return 0; }
+    void               setCurrentProgram(int) override {}
+    const juce::String getProgramName(int) override { return {}; }
+    void               changeProgramName(int, const juce::String &) override {}
+    juce::AudioProcessorParameter *getBypassParameter() const override {
+        return apvts.getParameter(Params::bypass_ID);
+    }
+
+    /* ======================================================== */
+
+  private:
+    // If you want a custom editor, remove the generic editor and write the
+    // definition in the cpp. It should instead return your editor.
+    juce::AudioProcessorEditor *createEditor() override;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Processor)
+
+    /* ======================================================== */
+
+  public:
+    APVTS apvts;
+
+    struct Params {
+        // inGain (float)
+        SCString inGain_ID       = "inGain";
+        SCString inGain_name     = "Input Gain";
+        SCString inGain_suffix   = " dB";
+        SCFloat  inGain_min      = -60.f;
+        SCFloat  inGain_max      = 12.f;
+        SCFloat  inGain_default  = 0.f;
+        SCFloat  inGain_stepSize = 0.1f;
+        SCFloat  inGain_skew     = Skew::exponential;
+
+        // outGain (float)
+        SCString outGain_ID       = "outGain";
+        SCString outGain_name     = "Output Gain";
+        SCString outGain_suffix   = " dB";
+        SCFloat  outGain_min      = -60.f;
+        SCFloat  outGain_max      = 12.f;
+        SCFloat  outGain_default  = 0.f;
+        SCFloat  outGain_stepSize = 0.1f;
+        SCFloat  outGain_skew     = Skew::exponential;
+
+        // cronch (float)
+        SCString cronch_ID       = "cronch";
+        SCString cronch_name     = "Cronch";
+        SCString cronch_suffix   = "";
+        SCFloat  cronch_min      = 0.f;
+        SCFloat  cronch_max      = 5.f;
+        SCFloat  cronch_default  = 1.f;
+        SCFloat  cronch_stepSize = 0.01f;
+        SCFloat  cronch_skew     = Skew::logarithmic;
+
+        // dcOffset (float)
+        SCString dcOffset_ID       = "dcOffset";
+        SCString dcOffset_name     = "DC Offset";
+        SCString dcOffset_suffix   = "";
+        SCFloat  dcOffset_min      = 0.f;
+        SCFloat  dcOffset_max      = 1.f;
+        SCFloat  dcOffset_default  = 0.f;
+        SCFloat  dcOffset_stepSize = 0.01f;
+        SCFloat  dcOffset_skew     = Skew::linear;
+
+        // smooth (float)
+        SCString smooth_ID       = "smooth";
+        SCString smooth_name     = "Smooth";
+        SCString smooth_suffix   = "";
+        SCFloat  smooth_min      = 0.f;
+        SCFloat  smooth_max      = 1.f;
+        SCFloat  smooth_default  = 0.f;
+        SCFloat  smooth_stepSize = 0.01f;
+        SCFloat  smooth_skew     = Skew::linear;
+
+        // mix (float)
+        SCString mix_ID       = "mix";
+        SCString mix_name     = "Mix";
+        SCString mix_suffix   = "%";
+        SCFloat  mix_min      = 0.f;
+        SCFloat  mix_max      = 100.f;
+        SCFloat  mix_default  = 100.f;
+        SCFloat  mix_stepSize = 0.1f;
+        SCFloat  mix_skew     = Skew::linear;
+
+        // bypass (bool)
+        SCString bypass_ID      = "bypass";
+        SCString bypass_name    = "Bypass";
+        SCBool   bypass_default = false;
+    };
+
+    pFloat inGainSmooth;
+    pFloat outGainSmooth;
+    pFloat mixSmooth;
+
+    pFloat cronchSmooth;
+    pFloat dcOffsetSmooth;
+    pFloat smoothSmooth;
+
+    pBool bypassParam;
+
+    SampleTap input_tap;
+    SampleTap output_tap;
+    SampleTap sidechain_tap;
+
+  private:
+    static APVTS::ParameterLayout createParameterLayout();
+};
