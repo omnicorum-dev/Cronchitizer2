@@ -123,7 +123,7 @@ class Processor final : public juce::AudioProcessor {
         SCString cronch_name     = "Cronch";
         SCString cronch_suffix   = "";
         SCFloat  cronch_min      = 0.f;
-        SCFloat  cronch_max      = 5.f;
+        SCFloat  cronch_max      = 10.f;
         SCFloat  cronch_default  = 1.f;
         SCFloat  cronch_stepSize = 0.01f;
         SCFloat  cronch_skew     = Skew::logarithmic;
